@@ -3,9 +3,9 @@ import re
 # Function to add labels to SQL statements
 def add_labels(content, counter):
     # Create labeled content with the current counter value
-    labeled_content = f'.LABEL {counter};\n{content.strip()};\n'
-    labeled_content += f'UPDATE DATABASE.LABEL_COUNTER SET MAX_LABEL = {counter};\n'
-    labeled_content += f'IF ACTIVITYCOUNT <> 0 THEN .GOTO {counter + 1}\n'
+    labeled_content = f'.LABEL {counter};\n'
+    labeled_content += f'{content.strip()};\n'
+    labeled_content += f"SELECT '1' AS cb_delete;\n"  # Add select statement
     return labeled_content, counter + 1
 
 # Path to the script file
@@ -28,9 +28,8 @@ for statement in statements[:-1]:  # Exclude the last empty statement after the 
     labeled_statement, counter = add_labels(statement, counter)
     # Append labeled statement to the list
     labeled_statements.append(labeled_statement)
-
-# Add the "End of script" statement
-labeled_statements.append('.LABEL_END_OF_SCRIPT;')
+    # Add an empty line after each labeled statement
+    labeled_statements.append('\n')
 
 # Join the labeled statements back together
 labeled_script = ';\n'.join(labeled_statements)
@@ -41,4 +40,3 @@ output_path = 'C:\\Users\\asus\\OneDrive\\Desktop\\label_creator_test_sql_labele
 # Write the modified script to a new file
 with open(output_path, 'w') as file:
     file.write(labeled_script)
-
