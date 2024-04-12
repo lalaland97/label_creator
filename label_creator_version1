@@ -2,14 +2,13 @@ import re
 
 # Function to add labels to SQL statements
 def add_labels(content, counter):
-    # Create labeled content with the current counter value
-    labeled_content = f'.LABEL {counter};\n'
-    labeled_content += f'{content.strip()};\n'
-    labeled_content += f"SELECT '1' AS cb_delete;\n"  # Add select statement
+    labeled_content = f'.LABEL {counter}\n'
+    labeled_content += f'SELECT \'{counter}\' as cb_delete\n'
+    labeled_content += f'{content.strip()}\n'
     return labeled_content, counter + 1
 
 # Path to the script file
-script_path = 'C:\\Users\\asus\\OneDrive\\Desktop\\label_creator_test_sql.sql'
+script_path = 'C:\\Users\\GO1441048\\Desktop\\enablers1.sql'
 
 # Read the script content from the file
 with open(script_path, 'r') as file:
@@ -28,14 +27,16 @@ for statement in statements[:-1]:  # Exclude the last empty statement after the 
     labeled_statement, counter = add_labels(statement, counter)
     # Append labeled statement to the list
     labeled_statements.append(labeled_statement)
-    # Add an empty line after each labeled statement
-    labeled_statements.append('\n')
 
-# Join the labeled statements back together
-labeled_script = ';\n'.join(labeled_statements)
+# Add a semicolon after each labeled statement except for the last one
+labeled_script = ''
+for i, statement in enumerate(labeled_statements):
+    labeled_script += statement
+    if i != len(labeled_statements) - 1:  # If not the last statement
+        labeled_script += ';\n'
 
 # Path to save the modified script
-output_path = 'C:\\Users\\asus\\OneDrive\\Desktop\\label_creator_test_sql_labeled.sql'
+output_path = 'C:\\Users\\GO1441048\\Desktop\\enablers1_labeled.sql'
 
 # Write the modified script to a new file
 with open(output_path, 'w') as file:
