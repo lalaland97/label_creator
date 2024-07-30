@@ -1,0 +1,66 @@
+import re
+
+def add_labels(content, counter):
+    labeled_content = f'.LABEL {counter}\n'
+    labeled_content += f'SELECT \'{counter}\' as cb_delete\n'
+    labeled_content += f'{content.strip()}\n'
+    return labeled_content, counter + 1
+
+# Path to the script file
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
+
+# Read the script content from the file
+with open(script_path, 'r') as file:
+    script_content = file.read()
+
+# Split the script content into individual statements
+statements = re.split(r';\s*', script_content)
+
+# Initialize counter
+counter = 1
+inside_volatile_section = False
+
+# Patterns for volatile and permanent table creation
+volatile_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE', re.IGNORECASE)
+permanent_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?PERMANENT\s+TABLE\s+\w+\.\w+', re.IGNORECASE)
+
+# Add labels to each statement
+labeled_statements = []
+for statement in statements[:-1]:  # Exclude the last empty statement after the final semicolon
+    statement = statement.strip()
+    if not statement:
+        continue
+    
+    # Check if the statement is creating a volatile table
+    if volatile_pattern.search(statement):
+        # If creating a volatile table, add a label and set flag
+        labeled_statement, counter = add_labels(statement, counter)
+        labeled_statements.append(labeled_statement)
+        inside_volatile_section = True
+    elif inside_volatile_section:
+        # If inside volatile section, add statement without label
+        labeled_statements.append(statement)
+        if permanent_pattern.search(statement):
+            # If a permanent table is encountered, reset flag
+            inside_volatile_section = False
+    else:
+        # If not inside volatile section, add label and statement
+        labeled_statement, counter = add_labels(statement, counter)
+        labeled_statements.append(labeled_statement)
+        if permanent_pattern.search(statement):
+            # If a permanent table is encountered, ensure the flag is reset
+            inside_volatile_section = False
+
+# Add a semicolon after each labeled statement except for the last one
+labeled_script = ''
+for i, statement in enumerate(labeled_statements):
+    labeled_script += statement
+    if i != len(labeled_statements) - 1:  # If not the last statement
+        labeled_script += ';\n'
+
+# Path to save the modified script
+output_path = 'C:\\Users\\id\\Desktop\\script.sql'
+
+# Write the modified script to a new file
+with open(output_path, 'w') as file:
+    file.write(labeled_script)
