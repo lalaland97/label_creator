@@ -7,7 +7,7 @@ def add_labels(content, counter):
     return labeled_content, counter + 1
 
 # Path to the script file
-script_path = 'C:\\Users\\id\\Desktop\\.sql'
+script_path = 'C:\\Users\\id\\Desktop\\1.sql'
 
 # Read the script content from the file
 with open(script_path, 'r') as file:
@@ -79,8 +79,4 @@ print(f"Labeled statements: {labeled_statements}")
 labeled_script = ';\n'.join(labeled_statements) + ';'
 
 # Path to save the modified script
-output_path = 'C:\\Users\\id\\Desktop\\_labeled.sql'
-
-# Write the modified script to a new file
-with open(output_path, 'w') as file:
-    file.write(labeled_script)
+output_path = '
