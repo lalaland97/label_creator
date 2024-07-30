@@ -1,0 +1,69 @@
+import re
+
+def add_labels(content, counter):
+    labeled_content = f'.LABEL {counter}\n'
+    labeled_content += f'SELECT \'{counter}\' as cb_delete\n'
+    labeled_content += f'{content.strip()}\n'
+    return labeled_content, counter + 1
+
+# Path to the script file
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
+
+# Read the script content from the file
+with open(script_path, 'r') as file:
+    script_content = file.read()
+
+# Split the script content into individual statements
+statements = re.split(r';\s*', script_content.strip())
+
+# Initialize variables
+counter = 1
+volatile_tables = set()
+dependent_statements = []
+labeled_statements = []
+
+# Patterns for volatile and permanent table creation
+volatile_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)', re.IGNORECASE)
+permanent_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?PERMANENT\s+TABLE\s+\w+\.\w+', re.IGNORECASE)
+table_usage_pattern = re.compile(r'(\b\w+\b)')
+
+# First pass: Identify all volatile tables
+for statement in statements:
+    statement = statement.strip()
+    if not statement:
+        continue
+    match = volatile_pattern.search(statement)
+    if match:
+        table_name = match.group(2)
+        volatile_tables.add(table_name.lower())
+
+# Second pass: Identify statements that depend on volatile tables
+for statement in statements:
+    statement = statement.strip()
+    if not statement:
+        continue
+    # Check if the statement uses any volatile table
+    tables_in_statement = table_usage_pattern.findall(statement.lower())
+    if any(table in volatile_tables for table in tables_in_statement):
+        dependent_statements.append(statement)
+    else:
+        labeled_statements.append(statement)
+
+# Third pass: Add labels to independent statements
+final_script = []
+for statement in labeled_statements:
+    if volatile_pattern.search(statement) or permanent_pattern.search(statement):
+        labeled_statement, counter = add_labels(statement, counter)
+        final_script.append(labeled_statement)
+    else:
+        final_script.append(statement)
+
+# Add a semicolon after each statement except for the last one
+final_script_with_semicolons = ';\n'.join(final_script) + ';'
+
+# Path to save the modified script
+output_path = 'C:\\Users\\id\\Desktop\\script_labeled.sql'
+
+# Write the modified script to a new file
+with open(output_path, 'w') as file:
+    file.write(final_script_with_semicolons)
