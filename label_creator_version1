@@ -3,12 +3,12 @@ import re
 # Function to add labels to SQL statements
 def add_labels(content, counter):
     labeled_content = f'.LABEL {counter}\n'
-    labeled_content += f'SELECT \'{counter}\' as cb_delete\n'
+    labeled_content += f'SELECT \'{counter}\' as lg_delete\n'
     labeled_content += f'{content.strip()}\n'
     return labeled_content, counter + 1
 
 # Path to the script file
-script_path = 'C:\\Users\\GO1441048\\Desktop\\enablers1.sql'
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
 
 # Read the script content from the file
 with open(script_path, 'r') as file:
@@ -36,7 +36,7 @@ for i, statement in enumerate(labeled_statements):
         labeled_script += ';\n'
 
 # Path to save the modified script
-output_path = 'C:\\Users\\GO1441048\\Desktop\\enablers1_labeled.sql'
+output_path = 'C:\\Users\\id\\Desktop\\script.sql'
 
 # Write the modified script to a new file
 with open(output_path, 'w') as file:
