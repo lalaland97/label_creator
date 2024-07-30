@@ -2,12 +2,12 @@ import re
 
 def add_labels(content, counter):
     labeled_content = f'.LABEL {counter}\n'
-    labeled_content += f'SELECT \'{counter}\' as cb_delete\n'
+    labeled_content += f'SELECT \'{counter}\' as lg_delete\n'
     labeled_content += f'{content.strip()}\n'
     return labeled_content, counter + 1
 
 # Path to the script file
-script_path = 'C:\\Users\\id\\Desktop\\enablers1.sql'
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
 
 # Read the script content from the file
 with open(script_path, 'r') as file:
@@ -21,6 +21,7 @@ counter = 1
 volatile_tables = set()
 labeled_statements = []
 current_block = []
+inside_volatile_block = False
 
 # Patterns for volatile and permanent table creation
 volatile_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)', re.IGNORECASE)
@@ -49,13 +50,17 @@ for statement in statements:
     
     # Check if the statement creates a volatile table
     if volatile_pattern.search(statement):
-        # If creating a volatile table, add a label to the current block and start a new block
+        # If creating a volatile table, ensure that current block is labeled
         if current_block:
-            labeled_block, counter = add_labels('\n'.join(current_block), counter)
-            labeled_statements.append(labeled_block)
+            if inside_volatile_block:
+                labeled_block, counter = add_labels('\n'.join(current_block), counter)
+                labeled_statements.append(labeled_block)
+            else:
+                labeled_statements.append('\n'.join(current_block))
             current_block = []
-        # Add the volatile table creation to the new block
+        # Start a new block with the volatile table creation
         current_block.append(statement)
+        inside_volatile_block = True
         print(f"Labeled volatile table creation: {statement}")
     
     else:
@@ -65,13 +70,15 @@ for statement in statements:
             # If the statement depends on a volatile table, add it to the current block
             current_block.append(statement)
             print(f"Statement depends on volatile table: {statement}")
+            inside_volatile_block = True
         else:
             # If the statement does not depend on a volatile table
-            if current_block:
+            if inside_volatile_block:
                 # Label the current block before starting a new one
                 labeled_block, counter = add_labels('\n'.join(current_block), counter)
                 labeled_statements.append(labeled_block)
                 current_block = []
+                inside_volatile_block = False
             # Add the independent statement to a new block
             current_block.append(statement)
             print(f"Independent statement: {statement}")
@@ -83,7 +90,10 @@ for statement in statements:
 
 # Label any remaining statements in the current block
 if current_block:
-    labeled_block, counter = add_labels('\n'.join(current_block), counter)
+    if inside_volatile_block:
+        labeled_block, counter = add_labels('\n'.join(current_block), counter)
+    else:
+        labeled_block = '\n'.join(current_block)
     labeled_statements.append(labeled_block)
 
 # Debug: Print all labeled statements
