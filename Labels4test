@@ -7,7 +7,7 @@ def add_labels(content, counter):
     return labeled_content, counter + 1
 
 # Path to the script file
-script_path = 'C:\\Users\\GO1441048\\Desktop\\enablers1.sql'
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
 
 # Read the script content from the file
 with open(script_path, 'r') as file:
@@ -19,88 +19,64 @@ statements = re.split(r';\s*', script_content.strip())
 # Initialize variables
 counter = 1
 volatile_tables = set()
-labeled_statements = []
+statements_with_volatile_refs = {}
 current_block = []
-inside_volatile_block = False
+in_volatile_block = False
 
 # Patterns for volatile and permanent table creation
 volatile_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)', re.IGNORECASE)
-permanent_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?PERMANENT\s+TABLE\s+\w+\.\w+', re.IGNORECASE)
 table_usage_pattern = re.compile(r'\b(\w+)\b')
 
-# First pass: Identify all volatile tables
-for statement in statements:
+# Pass 1: Identify volatile tables and their references
+for idx, statement in enumerate(statements):
     statement = statement.strip()
     if not statement:
         continue
+    # Check if the statement creates a volatile table
     match = volatile_pattern.search(statement)
     if match:
         table_name = match.group(2)
         volatile_tables.add(table_name.lower())
-        print(f"Identified volatile table: {table_name.lower()}")
+        continue
+    
+    # Store statements that reference volatile tables
+    tables_in_statement = table_usage_pattern.findall(statement.lower())
+    if any(table in volatile_tables for table in tables_in_statement):
+        statements_with_volatile_refs[idx] = statement
 
-# Debug: Print all identified volatile tables
+# Debug: Print all identified volatile tables and statements referencing them
 print(f"Volatile tables: {volatile_tables}")
+print(f"Statements referencing volatile tables: {statements_with_volatile_refs}")
 
-# Second pass: Process and label statements
-for statement in statements:
+# Pass 2: Process and label statements
+for idx, statement in enumerate(statements):
     statement = statement.strip()
     if not statement:
         continue
-    
-    # Check if the statement creates a volatile table
-    if volatile_pattern.search(statement):
-        # If creating a volatile table, label the previous block if needed
-        if current_block:
-            if inside_volatile_block:
-                labeled_block, counter = add_labels('\n'.join(current_block), counter)
-                labeled_statements.append(labeled_block)
-            else:
-                labeled_statements.append('\n'.join(current_block))
-            current_block = []
-        # Start a new block with the volatile table creation
-        current_block.append(statement)
-        inside_volatile_block = True
-        print(f"Starting new block with volatile table creation: {statement}")
-    
-    else:
-        # Check if the statement depends on any volatile tables
-        tables_in_statement = table_usage_pattern.findall(statement.lower())
-        if any(table in volatile_tables for table in tables_in_statement):
-            # If the statement depends on a volatile table, add it to the current block
-            current_block.append(statement)
-            print(f"Statement depends on volatile table: {statement}")
-            inside_volatile_block = True
-        else:
-            # If the statement does not depend on a volatile table
-            if inside_volatile_block:
-                # Label the current block before starting a new one
+
+    if idx in statements_with_volatile_refs:
+        # If the statement references volatile tables, ensure it's within the correct block
+        if not in_volatile_block:
+            # Label the previous block if needed
+            if current_block:
                 labeled_block, counter = add_labels('\n'.join(current_block), counter)
                 labeled_statements.append(labeled_block)
                 current_block = []
-                inside_volatile_block = False
-            # Add the independent statement to a new block
-            current_block.append(statement)
-            print(f"Processing independent statement or permanent table: {statement}")
-            if permanent_pattern.search(statement):
-                # If it is a permanent table, check if it contains references to volatile tables
-                dependencies = table_usage_pattern.findall(statement.lower())
-                if any(dep in volatile_tables for dep in dependencies):
-                    # If it depends on volatile tables, continue in the current block
-                    inside_volatile_block = True
-                else:
-                    # Otherwise, label the current block and reset
-                    if current_block:
-                        labeled_block, counter = add_labels('\n'.join(current_block), counter)
-                        labeled_statements.append(labeled_block)
-                        current_block = []
+            in_volatile_block = True
+        current_block.append(statement)
+    else:
+        # If the statement does not reference volatile tables
+        if in_volatile_block:
+            # Label the current block before starting a new one
+            labeled_block, counter = add_labels('\n'.join(current_block), counter)
+            labeled_statements.append(labeled_block)
+            current_block = []
+            in_volatile_block = False
+        current_block.append(statement)
 
 # Label any remaining statements in the current block
 if current_block:
-    if inside_volatile_block:
-        labeled_block, counter = add_labels('\n'.join(current_block), counter)
-    else:
-        labeled_block = '\n'.join(current_block)
+    labeled_block, counter = add_labels('\n'.join(current_block), counter)
     labeled_statements.append(labeled_block)
 
 # Debug: Print all labeled statements
@@ -110,7 +86,7 @@ print(f"Labeled statements: {labeled_statements}")
 labeled_script = ';\n'.join(labeled_statements) + ';'
 
 # Path to save the modified script
-output_path = 'C:\\Users\\GO1441048\\Desktop\\enablers1_labeled.sql'
+output_path = 'C:\\Users\\id\\Desktop\\script_labeled.sql'
 
 # Write the modified script to a new file
 with open(output_path, 'w') as file:
