@@ -2,7 +2,7 @@ import re
 
 def add_labels(content, counter):
     labeled_content = f'.LABEL {counter}\n'
-    labeled_content += f'SELECT \'{counter}\' as cb_delete\n'
+    labeled_content += f'SELECT \'{counter}\' as lg_delete\n'
     labeled_content += f'{content.strip()}\n'
     return labeled_content, counter + 1
 
@@ -19,51 +19,83 @@ statements = re.split(r';\s*', script_content.strip())
 # Initialize variables
 counter = 1
 volatile_tables = set()
-dependent_statements = []
+statements_with_volatile_refs = {}
 labeled_statements = []
+current_block = []
 
 # Patterns for volatile and permanent table creation
 volatile_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)', re.IGNORECASE)
-permanent_pattern = re.compile(r'CREATE\s+(MULTISET\s+)?PERMANENT\s+TABLE\s+\w+\.\w+', re.IGNORECASE)
-table_usage_pattern = re.compile(r'(\b\w+\b)')
+table_usage_pattern = re.compile(r'\b(\w+)\b')
 
-# First pass: Identify all volatile tables
-for statement in statements:
+# First pass: Identify all volatile tables and their references
+for idx, statement in enumerate(statements):
     statement = statement.strip()
     if not statement:
         continue
+    # Check if the statement creates a volatile table
     match = volatile_pattern.search(statement)
     if match:
         table_name = match.group(2)
         volatile_tables.add(table_name.lower())
+        continue
+    
+    # Store statements that reference volatile tables
+    tables_in_statement = table_usage_pattern.findall(statement.lower())
+    if any(table in volatile_tables for table in tables_in_statement):
+        statements_with_volatile_refs[idx] = statement
 
-# Second pass: Identify statements that depend on volatile tables
-for statement in statements:
+# Debug: Print all identified volatile tables and statements referencing them
+print(f"Volatile tables: {volatile_tables}")
+print(f"Statements referencing volatile tables: {statements_with_volatile_refs}")
+
+# Second pass: Process and label statements, and rearrange to group volatile statements
+in_volatile_block = False
+processed_statements = set()
+
+def process_statement_block(start_idx):
+    global counter
+    block = []
+    for idx in range(start_idx, len(statements)):
+        statement = statements[idx].strip()
+        if not statement or idx in processed_statements:
+            continue
+
+        tables_in_statement = table_usage_pattern.findall(statement.lower())
+        if any(table in volatile_tables for table in tables_in_statement):
+            block.append(statement)
+            processed_statements.add(idx)
+        elif volatile_pattern.search(statement):
+            block.append(statement)
+            processed_statements.add(idx)
+        else:
+            break
+    if block:
+        labeled_block, counter = add_labels('\n'.join(block), counter)
+        labeled_statements.append(labeled_block)
+
+# Iterate over statements and process them
+for idx, statement in enumerate(statements):
+    if idx in processed_statements:
+        continue
     statement = statement.strip()
     if not statement:
         continue
-    # Check if the statement uses any volatile table
+    
     tables_in_statement = table_usage_pattern.findall(statement.lower())
     if any(table in volatile_tables for table in tables_in_statement):
-        dependent_statements.append(statement)
+        process_statement_block(idx)
+    elif volatile_pattern.search(statement):
+        process_statement_block(idx)
     else:
-        labeled_statements.append(statement)
-
-# Third pass: Add labels to independent statements
-final_script = []
-for statement in labeled_statements:
-    if volatile_pattern.search(statement) or permanent_pattern.search(statement):
         labeled_statement, counter = add_labels(statement, counter)
-        final_script.append(labeled_statement)
-    else:
-        final_script.append(statement)
+        labeled_statements.append(labeled_statement)
 
-# Add a semicolon after each statement except for the last one
-final_script_with_semicolons = ';\n'.join(final_script) + ';'
+# Add a semicolon after each labeled statement except for the last one
+labeled_script = ';\n'.join(labeled_statements) + ';'
 
 # Path to save the modified script
 output_path = 'C:\\Users\\id\\Desktop\\script_labeled.sql'
 
 # Write the modified script to a new file
 with open(output_path, 'w') as file:
-    file.write(final_script_with_semicolons)
+    file.write(labeled_script)
